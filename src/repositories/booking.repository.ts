@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op,  type Transaction, } from "sequelize";
 
 import {
   Booking,
@@ -18,46 +18,67 @@ export async function findBookingUser(id: number) {
   return User.findByPk(id);
 }
 
-export async function findBookingRoom(id: number) {
-  return Room.findByPk(id);
-}
+export async function findBookingRoom(
+    id: number,
+    transaction?: Transaction,
+    lock = false,
+  ) {
+    return Room.findByPk(id, {
+      transaction,
+  
+      ...(lock && transaction
+        ? {
+            lock: transaction.LOCK.UPDATE,
+          }
+        : {}),
+    });
+  }
 
-export async function findOverlappingBooking(
-  roomId: number,
-  checkIn: string,
-  checkOut: string,
-) {
-  return Booking.findOne({
-    where: {
-      roomId,
-
-      status: {
-        [Op.in]: ["PENDING", "CONFIRMED"],
+  export async function findOverlappingBooking(
+    roomId: number,
+    checkIn: string,
+    checkOut: string,
+    transaction?: Transaction,
+  ) {
+    return Booking.findOne({
+      where: {
+        roomId,
+  
+        status: {
+          [Op.in]: ["PENDING", "CONFIRMED"],
+        },
+  
+        checkIn: {
+          [Op.lt]: checkOut,
+        },
+  
+        checkOut: {
+          [Op.gt]: checkIn,
+        },
       },
+  
+      transaction,
+    });
+  }
 
-      checkIn: {
-        [Op.lt]: checkOut,
+  export async function createBooking(
+    data: CreateBookingData,
+    transaction?: Transaction,
+  ) {
+    return Booking.create(
+      {
+        userId: data.userId,
+        roomId: data.roomId,
+        checkIn: data.checkIn,
+        checkOut: data.checkOut,
+        totalAmount: String(data.totalAmount),
+        status: "PENDING",
       },
-
-      checkOut: {
-        [Op.gt]: checkIn,
+      {
+        transaction,
       },
-    },
-  });
-}
-
-export async function createBooking(
-  data: CreateBookingData,
-) {
-  return Booking.create({
-    userId: data.userId,
-    roomId: data.roomId,
-    checkIn: data.checkIn,
-    checkOut: data.checkOut,
-    totalAmount: String(data.totalAmount),
-    status: "PENDING",
-  });
-}
+    );
+  }
 
 export async function findBookingById(id: number) {
   return Booking.findByPk(id, {
