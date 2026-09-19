@@ -1,5 +1,6 @@
 import { createApp } from "./app.js";
 import { env, sequelize } from "./config/index.js";
+import "./models/index.js";
 
 async function startServer() {
     try {
