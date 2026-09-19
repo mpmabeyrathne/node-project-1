@@ -2,6 +2,7 @@ import express from "express";
 import { errorHandler } from "./middleware/error-handler.middleware.js";
 import { roomRouter } from "./routes/room.routes.js";
 import { bookingRouter } from "./routes/booking.routes.js";
+import { paymentRouter } from "./routes/payment.routes.js";
 
 export function createApp() {
   const app = express();
@@ -22,6 +23,7 @@ export function createApp() {
 
   app.use("/rooms", roomRouter);
   app.use("/bookings", bookingRouter);
+  app.use("/payments", paymentRouter);
 
   app.use(errorHandler);
 

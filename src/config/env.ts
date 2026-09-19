@@ -13,6 +13,7 @@ const envSchema = z.object({
     REDIS_URL: z.string().min(1),
 
     DATABASE_URL: z.string().min(1),
+    MOCK_PAYMENT_WEBHOOK_SECRET: z.string().min(1),
 })
 
 const result = envSchema.safeParse(process.env);
