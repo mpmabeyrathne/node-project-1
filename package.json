@@ -32,6 +32,7 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.1",
+    "sequelize-cli": "^6.6.5",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   }

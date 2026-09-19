@@ -4,11 +4,13 @@ import z from "zod"
 const envSchema = z.object({
     PORT: z.coerce.number().int().positive().default(3000),
 
-  HOST: z.string().default("0.0.0.0"),
+    HOST: z.string().default("0.0.0.0"),
 
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
+    NODE_ENV: z
+        .enum(["development", "test", "production"])
+        .default("development"),
+
+    DATABASE_URL: z.string().min(1),
 })
 
 const result = envSchema.safeParse(process.env);
@@ -16,8 +18,8 @@ const result = envSchema.safeParse(process.env);
 if (!result.success) {
     console.error("Invalid environment configuration:");
     console.error(z.treeifyError(result.error));
-  
+
     process.exit(1);
-  }
-  
-  export const env = result.data;
+}
+
+export const env = result.data;
