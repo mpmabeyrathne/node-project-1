@@ -1,5 +1,5 @@
 import { createApp } from "./app.js";
-import { env, sequelize, redis } from "./config/index.js";
+import { env, sequelize, redis, connectRabbitMQ } from "./config/index.js";
 import "./models/index.js";
 
 async function startServer() {
@@ -11,6 +11,12 @@ async function startServer() {
         await redis.connect();
 
         console.log("Redis connection established");
+
+        await connectRabbitMQ();
+
+        console.log(
+          "RabbitMQ connection established",
+        );
 
         const app = createApp();
 

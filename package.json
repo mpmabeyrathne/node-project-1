@@ -7,7 +7,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "worker": "tsx watch src/workers/booking-confirmed.worker.ts"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,7 @@
   "packageManager": "pnpm@11.24.0",
   "type": "module",
   "dependencies": {
+    "amqplib": "^2.0.1",
     "dotenv": "^18.0.0",
     "express": "^5.2.1",
     "pg": "^8.23.0",
