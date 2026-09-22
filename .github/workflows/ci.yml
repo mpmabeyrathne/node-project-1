@@ -41,3 +41,37 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t booking-system:${{ github.sha }} .
+
+  deploy:
+    name: Deploy to AWS EC2
+    needs: verify
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-north-1
+
+      - name: Deploy through AWS Systems Manager
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=tag:Application,Values=booking-system" \
+            --comment "Deploy booking system ${{ github.sha }}" \
+            --parameters 'commands=[
+              "set -e",
+              "sudo -u ubuntu -H bash -lc '\''cd /home/ubuntu/node-project-1 && git fetch origin main && git reset --hard origin/main'\''",
+              "cd /home/ubuntu/node-project-1",
+              "docker compose up -d --build",
+              "docker compose ps -a",
+              "curl -fsS http://localhost:3000/health"
+            ]'
