@@ -1,17 +1,18 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: booking_user
-      POSTGRES_PASSWORD: booking_password
-      POSTGRES_DB: booking_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U booking_user -d booking_db"
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
         ]
       interval: 5s
       timeout: 5s
@@ -19,6 +20,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -27,16 +29,14 @@ services:
 
   rabbitmq:
     image: rabbitmq:4-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     ports:
-      - "15672:15672"
+      - "127.0.0.1:15672:15672"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "rabbitmq-diagnostics",
-          "-q",
-          "ping"
-        ]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -45,37 +45,20 @@ services:
     build: .
     env_file:
       - .env
-    environment:
-      DATABASE_URL: postgres://booking_user:booking_password@postgres:5432/booking_db
-      REDIS_URL: redis://redis:6379
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
-      NODE_ENV: production
     command:
-      [
-        "pnpm",
-        "exec",
-        "sequelize-cli",
-        "db:migrate"
-      ]
+      ["pnpm", "exec", "sequelize-cli", "db:migrate"]
     depends_on:
       postgres:
         condition: service_healthy
 
   api:
     build: .
+    restart: unless-stopped
     env_file:
       - .env
-    environment:
-      PORT: 3000
-      HOST: 0.0.0.0
-      NODE_ENV: production
-      DATABASE_URL: postgres://booking_user:booking_password@postgres:5432/booking_db
-      REDIS_URL: redis://redis:6379
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     ports:
       - "3000:3000"
-    command:
-      ["node", "dist/server.js"]
+    command: ["node", "dist/server.js"]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -97,18 +80,10 @@ services:
 
   worker:
     build: .
+    restart: unless-stopped
     env_file:
       - .env
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgres://booking_user:booking_password@postgres:5432/booking_db
-      REDIS_URL: redis://redis:6379
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
-    command:
-      [
-        "node",
-        "dist/workers/booking-confirmed.worker.js"
-      ]
+    command: ["node", "dist/workers/booking-confirmed.worker.js"]
     depends_on:
       migrate:
         condition: service_completed_successfully
