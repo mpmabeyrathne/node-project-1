@@ -1,0 +1,5 @@
+api.pasindumadhuwantha.com {
+    encode zstd gzip
+
+    reverse_proxy api:3000
+}
