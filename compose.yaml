@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -17,6 +23,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    mem_limit: 384m
+    cpus: "0.75"
+    pids_limit: 200
+    logging: *default-logging
 
   redis:
     image: redis:7-alpine
@@ -26,6 +36,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+    mem_limit: 96m
+    cpus: "0.25"
+    pids_limit: 100
+    logging: *default-logging
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -40,6 +55,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+    mem_limit: 320m
+    cpus: "0.75"
+    pids_limit: 300
+    logging: *default-logging
 
   migrate:
     build: .
@@ -50,6 +69,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    mem_limit: 256m
+    cpus: "0.50"
+    pids_limit: 100
+    logging: *default-logging
 
   api:
     build: .
@@ -78,6 +101,15 @@ services:
       timeout: 5s
       retries: 5
 
+    mem_limit: 256m
+    cpus: "0.50"
+    pids_limit: 150
+
+    init: true
+    stop_grace_period: 15s
+
+    logging: *default-logging
+
   worker:
     build: .
     restart: unless-stopped
@@ -89,6 +121,14 @@ services:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
+    mem_limit: 192m
+    cpus: "0.50"
+    pids_limit: 150
+
+    init: true
+    stop_grace_period: 15s
+
+    logging: *default-logging
 
   caddy:
     image: caddy:2-alpine
@@ -104,6 +144,11 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    mem_limit: 96m
+    cpus: "0.25"
+    pids_limit: 100
+
+    logging: *default-logging
 
 volumes:
   postgres_data:
