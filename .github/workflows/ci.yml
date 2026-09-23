@@ -49,6 +49,11 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    concurrency:
+      group: booking-system-production-deploy
+      cancel-in-progress: false
 
     permissions:
       id-token: write
@@ -61,17 +66,114 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: eu-north-1
 
-      - name: Deploy through AWS Systems Manager
+      - name: Deploy to production through SSM
+        shell: bash
         run: |
-          aws ssm send-command \
+          set -euo pipefail
+
+          cat > ssm-parameters.json <<'EOF'
+          {
+            "commands": [
+              "set -euo pipefail",
+              "APP_DIR=/home/ubuntu/node-project-1",
+              "PREVIOUS_COMMIT=$(sudo -u ubuntu -H bash -lc 'cd /home/ubuntu/node-project-1 && git rev-parse HEAD')",
+              "echo Previous commit: $PREVIOUS_COMMIT",
+              "sudo -u ubuntu -H bash -lc 'cd /home/ubuntu/node-project-1 && git fetch origin main && git reset --hard origin/main'",
+              "sudo -u ubuntu -H bash -lc \"cd /home/ubuntu/node-project-1 && PREVIOUS_COMMIT=$PREVIOUS_COMMIT bash scripts/deploy-production.sh\""
+            ]
+          }
+          EOF
+
+          COMMAND_ID=$(aws ssm send-command \
+            --region eu-north-1 \
+            --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
-            --targets "Key=tag:Application,Values=booking-system" \
-            --comment "Deploy booking system ${{ github.sha }}" \
-            --parameters 'commands=[
-              "set -e",
-              "sudo -u ubuntu -H bash -lc '\''cd /home/ubuntu/node-project-1 && git fetch origin main && git reset --hard origin/main'\''",
-              "cd /home/ubuntu/node-project-1",
-              "docker compose up -d --build",
-              "docker compose ps -a",
-              "curl -fsS http://localhost:3000/health"
-            ]'
+            --comment "Deploy booking system $GITHUB_SHA" \
+            --parameters file://ssm-parameters.json \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM command ID: $COMMAND_ID"
+
+          sleep 3
+
+          for attempt in $(seq 1 120); do
+            STATUS=$(aws ssm get-command-invocation \
+              --region eu-north-1 \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
+
+            echo "Deployment status: $STATUS"
+
+            case "$STATUS" in
+              Success)
+                echo "SSM deployment command completed successfully."
+                break
+                ;;
+
+              Failed|Cancelled|TimedOut|Cancelling)
+                echo "Deployment failed with SSM status: $STATUS"
+
+                aws ssm get-command-invocation \
+                  --region eu-north-1 \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+                  --query "{
+                    Status: Status,
+                    Output: StandardOutputContent,
+                    Error: StandardErrorContent
+                  }" \
+                  --output json
+
+                exit 1
+                ;;
+
+              Pending|InProgress|Delayed)
+                ;;
+
+              *)
+                echo "Unknown SSM status: $STATUS"
+                ;;
+            esac
+
+            sleep 5
+          done
+
+          FINAL_STATUS=$(aws ssm get-command-invocation \
+            --region eu-north-1 \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+            --query "Status" \
+            --output text)
+
+          if [ "$FINAL_STATUS" != "Success" ]; then
+            echo "Deployment did not complete successfully."
+            echo "Final SSM status: $FINAL_STATUS"
+
+            aws ssm get-command-invocation \
+              --region eu-north-1 \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+              --query "{
+                Status: Status,
+                Output: StandardOutputContent,
+                Error: StandardErrorContent
+              }" \
+              --output json
+
+            exit 1
+          fi
+
+          echo "Deployment completed successfully."
+
+          aws ssm get-command-invocation \
+            --region eu-north-1 \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+            --query "{
+              Status: Status,
+              Output: StandardOutputContent
+            }" \
+            --output json
