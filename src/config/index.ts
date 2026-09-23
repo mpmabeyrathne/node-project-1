@@ -4,4 +4,5 @@ export { redis } from "./redis.js";
 export {
     connectRabbitMQ,
     getRabbitMQChannel,
+    closeRabbitMQ,
   } from "./rabbitmq.js";

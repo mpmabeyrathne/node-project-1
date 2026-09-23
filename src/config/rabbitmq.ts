@@ -13,6 +13,18 @@ import amqp, {
   
   let connection: ChannelModel | null = null;
   let publisherChannel: Channel | null = null;
+
+  export async function closeRabbitMQ() {
+    if (publisherChannel) {
+      await publisherChannel.close();
+      publisherChannel = null;
+    }
+  
+    if (connection) {
+      await connection.close();
+      connection = null;
+    }
+  }
   
   export async function connectRabbitMQ() {
     connection = await amqp.connect(
