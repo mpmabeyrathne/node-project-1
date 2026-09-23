@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+S3_BUCKET="booking-system-backups-540389263579"
+S3_PREFIX="postgres"
+
 set -Eeuo pipefail
 
 APP_DIR="/home/ubuntu/node-project-1"
@@ -29,6 +32,18 @@ if [ ! -s "$BACKUP_FILE" ]; then
 fi
 
 sha256sum "$BACKUP_FILE" > "${BACKUP_FILE}.sha256"
+
+echo "Uploading backup to S3..."
+
+aws s3 cp \
+  "$BACKUP_FILE" \
+  "s3://${S3_BUCKET}/${S3_PREFIX}/$(basename "$BACKUP_FILE")"
+
+aws s3 cp \
+  "${BACKUP_FILE}.sha256" \
+  "s3://${S3_BUCKET}/${S3_PREFIX}/$(basename "${BACKUP_FILE}.sha256")"
+
+echo "S3 upload completed successfully"
 
 find "$BACKUP_DIR" \
   -type f \
