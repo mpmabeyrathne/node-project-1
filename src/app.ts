@@ -21,10 +21,9 @@ export function createApp() {
   app.use(express.json());
 
   app.get("/health", (_req, res) => {
-    // res.status(200).json({
-    //   status: "ok",
-    // });
-    res.status(503).json({ status: "rollback-test" });
+    res.status(200).json({
+      status: "ok",
+    });
   });
 
   const apiLimiter = rateLimit({
