@@ -33,8 +33,8 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    ports:
-      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
@@ -89,25 +89,24 @@ services:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
-
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-
     depends_on:
       api:
         condition: service_healthy
 
 volumes:
   postgres_data:
+  rabbitmq_data:
   caddy_data:
   caddy_config:
